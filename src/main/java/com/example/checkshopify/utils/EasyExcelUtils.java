@@ -5,6 +5,7 @@ import com.alibaba.excel.ExcelWriter;
 import com.alibaba.excel.write.metadata.WriteSheet;
 
 import javax.servlet.http.HttpServletResponse;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URLEncoder;
@@ -40,6 +41,30 @@ public class EasyExcelUtils {
             // 向Excel中写入数据
             excelWriter.write(data, writeSheet);
         } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            // 关闭流
+            excelWriter.finish();
+        }
+    }
+
+    /**
+     * 导出
+     *
+     * @param head      类型
+     * @param sheetName 表格名
+     * @param data      数据集合
+     */
+    public static void export(FileOutputStream fileOutputStream, Class head, String sheetName, List data) {
+        ExcelWriter excelWriter = null;
+        try {
+            // 创建ExcelWriter对象
+            excelWriter = EasyExcel.write(fileOutputStream, head).build();
+            // 创建Sheet对象
+            WriteSheet writeSheet = EasyExcel.writerSheet(sheetName).build();
+            // 向Excel中写入数据
+            excelWriter.write(data, writeSheet);
+        } catch (Exception e) {
             e.printStackTrace();
         } finally {
             // 关闭流
