@@ -92,8 +92,8 @@ public class SpiderMain extends JFrame implements ActionListener {
             try {
                 File selectedFile = fc.getSelectedFile();
                 InputStream inputStream =  new FileInputStream(selectedFile);
+                JOptionPane.showMessageDialog(null, "请耐心等待,完成后文件将在该程序路径下生成,点击确定后开始,请勿关闭程序!");
                 getHttp(inputStream);
-                JOptionPane.showMessageDialog(null, "请耐心等待,完成后文件将在该文件路径下生成,请勿关闭程序!");
             } catch (FileNotFoundException ex) {
                 JOptionPane.showMessageDialog(null, "解析出错，请校对模板后重试!");
             }
