@@ -1,0 +1,4 @@
+server:
+  port: 8808
+project:
+  name: checkshopify
