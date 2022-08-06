@@ -3,19 +3,8 @@ package com.example.checkshopify;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.ExcelReader;
 import com.alibaba.excel.ExcelWriter;
-import com.alibaba.excel.context.AnalysisContext;
-import com.alibaba.excel.event.AnalysisEventListener;
 import com.alibaba.excel.write.metadata.WriteSheet;
 import com.example.checkshopify.dto.ModelExcel;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.ssl.SSLContextBuilder;
-import org.apache.http.util.EntityUtils;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -24,12 +13,9 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import javax.net.ssl.SSLContext;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -46,6 +32,7 @@ public class SpiderMain extends JFrame implements ActionListener {
     private JTextField textField;
     private JPanel panel;
     private JFileChooser fc = new JFileChooser();
+    private ExecutorService executorService = Executors.newFixedThreadPool(5);
 
 
     public SpiderMain() {
@@ -93,9 +80,14 @@ public class SpiderMain extends JFrame implements ActionListener {
                 File selectedFile = fc.getSelectedFile();
                 InputStream inputStream =  new FileInputStream(selectedFile);
                 JOptionPane.showMessageDialog(null, "请耐心等待,完成后文件将在该程序路径下生成,点击确定后开始,请勿关闭程序!");
-                getHttp(inputStream);
+                HttpRunnable httpRunnable = new HttpRunnable();
+                httpRunnable.setInputStream(inputStream);
+                executorService.execute(httpRunnable);
+                //getHttp(inputStream);
             } catch (FileNotFoundException ex) {
                 JOptionPane.showMessageDialog(null, "解析出错，请校对模板后重试!");
+            }finally {
+                executorService.shutdown();
             }
         }else if(e.getSource() == downTemplate){
             downTemplate();
@@ -118,65 +110,6 @@ public class SpiderMain extends JFrame implements ActionListener {
         return filename;
     }
 
-    public void getHttp(InputStream inputStream) {
-        List<ModelExcel> list = new ArrayList<>();
-        ExcelReader excelReader = null;
-        CloseableHttpClient httpClient = getHttpClient();
-        try {
-            // 创建ExcelReader对象
-            excelReader = EasyExcel.read(inputStream, ModelExcel.class, new AnalysisEventListener<ModelExcel>() {
-                @Override
-                public void invoke(ModelExcel modelExcel, AnalysisContext analysisContext) {
-                    if (Objects.isNull(modelExcel)) {
-                        return;
-                    }
-                    String s = modelExcel.getUrl();
-                    if (StringUtils.isNotBlank(s)) {
-                        String trim = s.trim();
-                        if (!s.startsWith("http") && !s.startsWith("https")) {
-                            modelExcel.setResult("需要http或htpps开头");
-                            list.add(modelExcel);
-                            return;
-                        }
-                        HttpGet httpGet = new HttpGet(trim);
-                        //使用HttpClient发起请求
-                        try (CloseableHttpResponse response = httpClient.execute(httpGet)) {
-                            //判断响应状态码是否为200
-                            if (response.getStatusLine().getStatusCode() == 200) {
-                                //如果为200表示请求成功，获取返回数据
-                                String content = EntityUtils.toString(response.getEntity(), "UTF-8");
-                                if (content.contains("shopify")) {
-                                    modelExcel.setResult("是");
-                                    list.add(modelExcel);
-                                }else {
-                                    modelExcel.setResult("否");
-                                    list.add(modelExcel);
-                                }
-                            }
-                        } catch (Exception e) {
-                            modelExcel.setResult("网址访问出错!");
-                            list.add(modelExcel);
-                        }
-                    }
-                }
-
-                @Override
-                public void doAfterAllAnalysed(AnalysisContext analysisContext) {
-                    JOptionPane.showMessageDialog(null, "导入成功!");
-                }
-            }).build();
-            excelReader.readAll();
-            LocalDateTime now = LocalDateTime.now();
-            String format = now.format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
-            File file = new File(format+"-result.xls");
-            FileOutputStream fileOutputStream = new FileOutputStream(file);
-            export(fileOutputStream, ModelExcel.class, "表格1", list);
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            excelReader.finish();
-        }
-    }
 
     public void downTemplate(){
         ExcelReader excelReader = null;
@@ -187,18 +120,6 @@ public class SpiderMain extends JFrame implements ActionListener {
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public CloseableHttpClient getHttpClient() {
-        //创建HttpClient对象
-        SSLContext sslContext = null;
-        try {
-            sslContext = SSLContextBuilder.create().useProtocol(SSLConnectionSocketFactory.SSL).loadTrustMaterial((x, y) -> true).build();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        RequestConfig config = RequestConfig.custom().setConnectTimeout(5000).setSocketTimeout(5000).build();
-        return HttpClientBuilder.create().setDefaultRequestConfig(config).setSSLContext(sslContext).setSSLHostnameVerifier((x, y) -> true).build();
     }
 
 
